@@ -43,11 +43,12 @@ The package was developed on Ubuntu 18.04, but is written to also work on Mac an
 
 ## Paper using NPSN
 
+NPSN was used to create a [surrogate model for the MIT reactor](https://arxiv.org/abs/2007.05435).
 
 ## Cite 
 
 If you use NPSN in your work, please cite as:
-> A. J. Dave, J. Wilson, K. Sun, "Deep Surrogate Models for Multi-dimensional Regression of Reactor Power," arXiv, 2020.
+> A. J. Dave, J. Wilson, K. Sun, "Deep Surrogate Models for Multi-dimensional Regression of Reactor Power," arXiv:2007.05435 [physics.comp-ph], 2020.
 
 ## Contact
 If you have any questions, comments, or suggestions feel free to [email](mailto:akshayjd@mit.edu) me!
