@@ -30,7 +30,7 @@ npsn.post(proj_nm)
 
 The output will be a `keras` model, in the current working directory (_/cwd_), that can be loaded using `keras.models.load_model`.
 Error metrics will be output to the _/cwd/csv_ directory and consist of mean and standard deviation of MAP error against test and training data.
-If optimization studies are conducted, the data on each permutation will be output ot the _/cwd/mat_ directory and consist of a .mat file that can be loaded into MATLAB or with `scipy.io.loadmat`.
+If optimization studies are conducted, the data on each permutation will be output to the _/cwd/mat_ directory and consist of a .mat file that can be loaded into MATLAB or with `scipy.io.loadmat`.
 
 ## Installation
 
