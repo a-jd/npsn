@@ -145,7 +145,7 @@ def get_best_model(trials):
 
 
 def train(PRJNM, datadir,
-          n_x, n_y, rmCol=None,
+          n_x, n_y, rmCol=None, npy_check=False,
           guessBool=True, max_evals=1):
     '''
     Training driver of neuralnetwork with optimization
@@ -157,6 +157,7 @@ def train(PRJNM, datadir,
             nelem: number of fuel elements
             nnode: number of nodes per element
         rmCol: 1D array to remove any csv column
+        npy_check: if .npy file with height list in dataset exists
         guessBool: if including initial guess for hyperparameters
         max_evals: if optimizing, >1, else == 1
     '''
@@ -165,7 +166,8 @@ def train(PRJNM, datadir,
 
     # Instantiate DataLoader
     data_args = (datadir, n_x, n_y)
-    data_loader = DataLoader(*data_args, rmCol=rmCol)
+    data_loader = DataLoader(*data_args, rmCol=rmCol,
+                             npy_check=npy_check)
 
     # Instantiate BaseModel
     model = BaseModel(*data_loader.load_data())

@@ -63,7 +63,8 @@ class PowerReader:
     """
     Class to read power distributions.
     """
-    def __init__(self, dirName, n_x, n_y, rmCol=None):
+    def __init__(self, dirName, n_x, n_y, rmCol=None,
+                 npy_check=False):
         '''
         dirName: directory name containing csvs
         n_x: 1D array of input control blade heights
@@ -72,6 +73,7 @@ class PowerReader:
             nnode: number of nodes per element
             if using rmCol, nnode should add len(rmCol)
         rmCol: remove any csv column (needed for dummy locs)
+        npy_check: if .npy file with height list exists
         '''
         assert type(n_x) is int or type(n_x) is np.int32, \
             "n_x not an int"
@@ -83,7 +85,7 @@ class PowerReader:
         assert type(n_y[1]) is int, "n_y[1] not an int"
         self.n_x = n_x
         self.n_y = n_y
-        self.hls, self.pwrl = self._readFiles(dirName, n_x, n_y)
+        self.pwrl = self._readFiles(dirName, n_x, n_y, npy_check)
         if rmCol is not None:
             self._remove_null_pwr(rmCol)
         # Keep track of scaling & initiate
@@ -92,7 +94,7 @@ class PowerReader:
         self._initiate_scalers(rmCol)
 
     @staticmethod
-    def _readFiles(dirName, n_x, n_y):
+    def _readFiles(dirName, n_x, n_y, npy_check):
         '''
         inputs:
             same defs as __init__
@@ -111,12 +113,14 @@ class PowerReader:
         # For strange error when using listdir with np.str_
         if type(dirName) == np.str_:
             dirName = str(dirName)
+
         # Look for saved .npy file (contains heights)
-        hfn = [join(dirName, f)
-               for f in listdir(dirName)
-               if isfile(join(dirName, f)) and f.endswith('.npy')]
-        assert len(hfn) == 1, "Dataset list error."
-        hls = np.load(hfn[0])
+        if npy_check:
+            hfn = [join(dirName, f)
+                   for f in listdir(dirName)
+                   if isfile(join(dirName, f)) and f.endswith('.npy')]
+            assert len(hfn) == 1, "Dataset list error."
+            hls = np.load(hfn[0])
 
         # Get all .csv files in directory
         fns = [f
@@ -129,12 +133,13 @@ class PowerReader:
             sbh, pwr = __csvread(join(dirName, fn))
             idn = int(re.findall('\d+', fn)[-1])
             #  Check if sbh read is equal to .npy file
-            assert np.allclose(hls[idn], sbh), "sbh discrepancy"
+            if npy_check:
+                assert np.allclose(hls[idn], sbh), "sbh discrepancy"
             # SBH reshaped to be [sample, nfeatures] compliant
             pwrl.append(PowerRecord(idn, sbh.reshape(-1, 1), pwr))
 
         # Final output
-        return hls, pwrl
+        return pwrl
 
     def _remove_null_pwr(self, rmCol):
         '''
@@ -271,7 +276,8 @@ class DataLoader():
     """
     Class to handle data from PowerReader
     """
-    def __init__(self, dirnm, n_x, n_y, rmCol=None):
+    def __init__(self, dirnm, n_x, n_y, rmCol=None,
+                npy_check=False):
         '''
         dirnm: directory name containing csvs
         n_x: 1D array of input control blade heights
@@ -280,11 +286,13 @@ class DataLoader():
             nnode: number of nodes per element
             if using rmCol, nnode should add len(rmCol)
         rmCol: remove any csv column (needed for dummy locs)
+        npy_check: if .npy file with height list exists
         '''
         self.dirnm = dirnm
         self.n_x = n_x
         self.n_y = n_y
         self.rmCol = rmCol
+        self.npy_check = npy_check
 
     def get_data_settings(self):
         '''
@@ -306,7 +314,8 @@ class DataLoader():
         Returns:
             x_train, y_train, x_test, y_test
         '''
-        tdat = PowerReader(self.dirnm, self.n_x, self.n_y, self.rmCol)
+        tdat = PowerReader(self.dirnm, self.n_x, self.n_y,
+                           rmCol=self.rmCol, npy_check=self.npy_check)
         tdat.scale_heights()
         tdat.scale_powers()
         x_train, y_train, x_test, y_test = tdat.load_data()
