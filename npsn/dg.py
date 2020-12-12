@@ -276,29 +276,32 @@ class DataLoader():
     """
     Class to handle data from PowerReader
     """
-    def __init__(self, dirnm, n_x, n_y, rmCol=None,
-                npy_check=False):
+    def __init__(self, prj_nm, dirnm, n_x, n_y,
+                 rmCol=None, npy_check=False):
         '''
+        prj_nm: project name for saving trained models
         dirnm: directory name containing csvs
         n_x: 1D array of input control blade heights
         n_y: 2D array of size (nelem, nnode) where
             nelem: number of fuel elements
             nnode: number of nodes per element
-            if using rmCol, nnode should add len(rmCol)
+            if using rmCol, nelem should add len(rmCol)
         rmCol: remove any csv column (needed for dummy locs)
         npy_check: if .npy file with height list exists
         '''
+        self.prj_nm = prj_nm
         self.dirnm = dirnm
         self.n_x = n_x
         self.n_y = n_y
         self.rmCol = rmCol
         self.npy_check = npy_check
 
-    def get_data_settings(self):
+    def get_data_info(self):
         '''
         Return data info as a dict for saving
         '''
         data_info = {
+            'prj_nm': self.prj_nm,
             'dirnm': self.dirnm,
             'n_x': self.n_x,
             'n_y': self.n_y,
@@ -347,36 +350,3 @@ class DataLoader():
         return x_out, y_out
 
 
-def append_to_hdf(fname, **kwargs):
-    '''
-    A function to append dataset settings to hdf5 file.
-    Useful to save NN model + setting sin one file.
-    Inputs:
-        fname: file name of hdf5 keras model
-        kwargs: dict containing vars to store
-    '''
-    from tables import open_file
-    h5file = open_file(fname, mode='a')
-    array = h5file.create_array('/', 'NN_Settings', [])
-    for key, value in kwargs.items():
-        setattr(array.attrs, key, value)
-    h5file.close()
-
-
-def read_from_hdf(fname, input_dict):
-    '''
-    Read data stored from append_to_hdf
-    Inputs:
-        fname: file name of hdf5 keras model
-        input_dict: empty dict with keys to fetch info
-    Returns:
-        input_dict: filled dict
-    '''
-    from tables import open_file
-    h5file = open_file(fname, mode='r')
-    array = h5file.root.NN_Settings
-    for key in input_dict:
-        input_dict[key] = getattr(array.attrs, key)
-        print('Read from hdf5: {}'.format(key))
-    h5file.close()
-    return input_dict

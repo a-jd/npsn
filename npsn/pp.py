@@ -15,7 +15,10 @@ import numpy as np
 import scipy.io as scio
 
 from .dg import PowerReader
-from .dg import read_from_hdf
+
+# TODO: Not Good Practice, will need a different method for each model.
+from .models.ann import ANN
+read_from_hdf = ANN.read_from_hdf
 
 
 def map_error(x, xhat, errTyp='mape'):
@@ -92,12 +95,12 @@ def map_error(x, xhat, errTyp='mape'):
     return noerr, elerr, coerr
 
 
-def eval_model(PRJNM, inpdict, model):
+def eval_model(prj_nm, inpdict, model):
     '''
     Evaluates keras model using map_error function and
     writes csv files into csv/ directory
     inputs:
-        PRJNM: base name of inp model
+        prj_nm: base name of inp model
         inpdict: keys to be loaded for data
         model: keras model to be evaluated
     '''
@@ -133,7 +136,7 @@ def eval_model(PRJNM, inpdict, model):
     csvpath = os.path.join(os.getcwd(), 'csvs')
     if not os.path.isdir(csvpath):
         os.mkdir(csvpath)
-    path = os.path.join(csvpath, PRJNM+'_')
+    path = os.path.join(csvpath, prj_nm+'_')
 
     errType = ['mape', 'mape_std']
     for errSel in errType:
@@ -148,13 +151,13 @@ def eval_model(PRJNM, inpdict, model):
         np.savetxt(fn+"_cte.csv", cte, delimiter=",", fmt='%.8e')
 
 
-def parse_trials(PRJNM, trial):
+def parse_trials(prj_nm, trial):
     '''
     Function to parse trials object that results from a
-    hyperas execution. Trials object contains information
+    hyperopt execution. Trials object contains information
     about each hyperparameter permutation and its result.
     Inputs:
-        PRJNM: base name of inp model
+        prj_nm: base name of inp model
         trial: pass trial object type = hyperopt.Trial
     Returns:
         None (but prints out a .mat file)
@@ -163,7 +166,7 @@ def parse_trials(PRJNM, trial):
     matpath = os.path.join(os.getcwd(), 'mats')
     if not os.path.isdir(matpath):
         os.mkdir(matpath)
-    path = os.path.join(matpath, PRJNM+'_')
+    path = os.path.join(matpath, prj_nm+'_')
 
     fn = path+'hyppars'
     output_dict = {
@@ -175,14 +178,14 @@ def parse_trials(PRJNM, trial):
     return None
 
 
-def show_map(PRJNM):
+def show_map(prj_nm):
     '''
     Simple function to visualize error map
     Inputs:
-        PRJNM: base name of inp model
+        prj_nm: base name of inp model
     '''
     import matplotlib.pyplot as plt
-    fn = 'csvs/'+PRJNM+'_'+'mape_cte.csv'
+    fn = 'csvs/'+prj_nm+'_'+'mape_cte.csv'
     err = np.genfromtxt(fn, delimiter=',')
     plt.imshow(err)
     plt.colorbar()
@@ -190,14 +193,14 @@ def show_map(PRJNM):
     return None
 
 
-def post_processor(PRJNM):
+def post_processor(prj_nm):
     '''
-    Postprocesses model 'PRJNM.hdf' and creates output
+    Postprocesses model 'prj_nm.hdf' and creates output
     in cwd/csvs with error statistics
     Inputs:
-        PRJNM: saved name of trained model
+        prj_nm: saved name of trained model
     '''
-    fn = PRJNM+'.hdf5'
+    fn = prj_nm+'.hdf5'
     fpath = os.path.join(os.getcwd(), fn)
     model = keras.models.load_model(fpath)
 
@@ -207,4 +210,4 @@ def post_processor(PRJNM):
     inpdict = read_from_hdf(fpath, inpdict)
 
     # calculate the error metrics
-    eval_model(PRJNM, inpdict, model)
+    eval_model(prj_nm, inpdict, model)
