@@ -36,18 +36,18 @@ class ANN(BaseModel):
 
         # Create Network #
         # Input layer
-        inp = keras.layers.Input(self.in_shape)
+        inp = keras.layers.Input(self.x_shape)
         # First dense layer
-        d1 = keras.layers.Dense(np.prod(self.out_shape),
+        d1 = keras.layers.Dense(np.prod(self.y_shape),
                                 activation=aint_dense)(inp)
         # Intermediate dense layer
         for ninterm in range(nint_dense):
             d1 = keras.layers.Dense(sint_dense,
                                     activation=aint_dense)(d1)
         # Final dense layer
-        d1 = keras.layers.Dense(np.prod(self.out_shape))(d1)
+        d1 = keras.layers.Dense(np.prod(self.y_shape))(d1)
         # Output layer
-        outp = keras.layers.Reshape(self.out_shape)(d1)
+        outp = keras.layers.Reshape(self.y_shape)(d1)
 
         # Compile and train #
         model = keras.Model(inp, outp)
@@ -59,11 +59,13 @@ class ANN(BaseModel):
                             validation_data=(self.x_test, self.y_test),
                             verbose=0)
 
-        # Hyperopt loss for each permutation #
+        # Hyperopt loss for each combination
         # Taking val MSE from last 10 epochs
         loss_array = history.history['val_mse'][-10:]
         hyp_loss = np.mean(loss_array)
-        return {'loss': hyp_loss, 'status': STATUS_OK, 'keras_model': model}
+        self.tr_hist.update_history(params, hyp_loss, model)
+
+        return {'loss': hyp_loss, 'status': STATUS_OK}
 
     def hpss_space(self):
         hpss = {
@@ -94,7 +96,7 @@ class ANN(BaseModel):
         '''
         Save keras hdf5 model and append DataLoader settings
         '''
-        model = self.TrainingHistory.best_model
+        model = self.tr_hist.best_model
         if model is None:
             raise(Exception('Model not trained.'))
 

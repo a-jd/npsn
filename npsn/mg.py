@@ -6,8 +6,6 @@ This module will have the following objectives:
 2. Allow easy manipulation of search space & base architecture
 '''
 
-import numpy as np
-
 from hyperopt import fmin, tpe
 
 from .models.base import TrainingHistory
@@ -15,6 +13,7 @@ from .dg import DataLoader
 from .pp import parse_trials
 
 from .models.ann import ANN
+from .models.svr import SVR
 
 
 def ModelGenerator(model_nm, data_info, data):
@@ -31,23 +30,11 @@ def ModelGenerator(model_nm, data_info, data):
     tr_hist = TrainingHistory(model_nm)
 
     models = {
-        'ann': ANN
+        'ann': ANN,
+        'svr': SVR
     }
 
     return models[model_nm](data_info, *data, tr_hist)
-
-
-def get_best_model(trials):
-    '''
-    DEPRECATED
-    Go through trials and return best trained keras model
-    Inputs:
-        trials: trials type object from hyperopt training
-    Returns:
-        best_model: model with lowest loss
-    '''
-    minidx = np.argmin([tr['loss'] for tr in trials.results])
-    return trials.results[minidx]['keras_model']
 
 
 def train(prj_nm, model_nm, datadir,
@@ -91,8 +78,8 @@ def train(prj_nm, model_nm, datadir,
     # Save best model
     model.save_model()
 
-    print('The best model was:')
-    model.tr_hist.best_model.summary()
+    # Print best model info
+    model.tr_hist.best_model_info()
 
     # save the .mat file of all trials, if optimizing
     parse_trials(prj_nm, trials)

@@ -282,9 +282,9 @@ class DataLoader():
         prj_nm: project name for saving trained models
         dirnm: directory name containing csvs
         n_x: 1D array of input control blade heights
-        n_y: 2D array of size (nelem, nnode) where
-            nelem: number of fuel elements
+        n_y: 2D array of size (nnode, nelem) where
             nnode: number of nodes per element
+            nelem: number of fuel elements
             if using rmCol, nelem should add len(rmCol)
         rmCol: remove any csv column (needed for dummy locs)
         npy_check: if .npy file with height list exists

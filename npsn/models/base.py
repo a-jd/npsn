@@ -24,8 +24,10 @@ class BaseModel():
         self.y_train = y_train
         self.x_test = x_test
         self.y_test = y_test
-        self.in_shape = x_train.shape[1:]
-        self.out_shape = y_train.shape[1:]
+        self.ntrain = x_train.shape[0]
+        self.ntest = x_test.shape[0]
+        self.x_shape = x_train.shape[1:]
+        self.y_shape = y_train.shape[1:]
         self.tr_hist = tr_hist
         self.hps_guess = None
 
@@ -38,6 +40,7 @@ class BaseModel():
     def gen_trials(self):
         '''
         Generate an initial Trial object.
+        Redefine this function if you want custom guesses.
         Returns:
             trials: empty or pre-defined trials object
         '''
@@ -56,6 +59,21 @@ class BaseModel():
 
     def load_model(self):
         raise(NotImplementedError)
+
+    def flat_y(self):
+        '''
+        To handle flattening of power from
+        (nbatch,nz,nelem) -> (nbatch,nz*nelem)
+        Returns:
+            y_train_flat, y_test_flat
+        '''
+        # Train matrix
+        shape = (self.ntrain, np.prod(self.y_shape))
+        y_train_flat = np.reshape(self.y_train, shape)
+        # Test matrix
+        shape = (self.ntest, np.prod(self.y_shape))
+        y_test_flat = np.reshape(self.y_test, shape)
+        return y_train_flat, y_test_flat
 
 
 class TrainingHistory:
@@ -78,6 +96,15 @@ class TrainingHistory:
         self.loss.append(loss)
         if loss <= self.min_loss:
             self.min_loss = loss
-            self.min_loss_idx = self.loss.count
+            self.min_loss_idx = len(self.loss)
             self.best_model = model
 
+    def best_model_info(self):
+        if self.best_model is None:
+            print("Not yet trained!")
+        else:
+            header = (self.model_nm, self.min_loss_idx)
+            print("Best {} comb # {}".format(*header))
+            print("Loss was {}".format(self.min_loss))
+            print("Hyper-parameters were:")
+            print(self.hps[self.min_loss_idx-1])
