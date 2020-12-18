@@ -30,6 +30,7 @@ class BaseModel():
         self.y_shape = y_train.shape[1:]
         self.tr_hist = tr_hist
         self.hps_guess = None
+        self.loaded_model = None
 
     def train_model(self, params):
         raise(NotImplementedError)
@@ -57,12 +58,15 @@ class BaseModel():
     def save_model(self):
         raise(NotImplementedError)
 
-    def load_model(self):
+    def load_model(self, file_nm, inpdict):
+        raise(NotImplementedError)
+
+    def eval_model(self):
         raise(NotImplementedError)
 
     def flat_y(self):
         '''
-        To handle flattening of power from
+        To handle flattening of training data from
         (nbatch,nz,nelem) -> (nbatch,nz*nelem)
         Returns:
             y_train_flat, y_test_flat
@@ -75,15 +79,29 @@ class BaseModel():
         y_test_flat = np.reshape(self.y_test, shape)
         return y_train_flat, y_test_flat
 
+    def un_flat_y(self, y_flat):
+        '''
+        To handle unflattening of predicted data from
+        (nbatch,nz*nelem) -> (nbatch,nz,nelem)
+        Inputs:
+            y_flat: Array, shape(nbatch,nz*nelem)
+        Returns:
+            y_reshaped: Array, shape (nbatch,nz,nelem)
+        '''
+        nbatch = y_flat.shape[0]
+        n_y = self.data_info['n_y']
+        n_y = (n_y[0], n_y[1] - len(self.data_info['rmCol']))
+
+        # Reshape
+        shape = (nbatch, n_y[0], n_y[1])
+        return np.reshape(y_flat, shape)
+
 
 class TrainingHistory:
-    def __init__(self, model_nm):
+    def __init__(self):
         """
         Class to keep a record of the training history
-        Inputs:
-            model_nm: String, type of regression model used
         """
-        self.model_nm = model_nm
         # Initiate tracking variables
         self.hps = []  # Hyperparameters list
         self.loss = []  # Loss list
@@ -103,8 +121,7 @@ class TrainingHistory:
         if self.best_model is None:
             print("Not yet trained!")
         else:
-            header = (self.model_nm, self.min_loss_idx)
-            print("Best {} comb # {}".format(*header))
+            print("Best comb # {}".format(self.min_loss_idx))
             print("Loss was {}".format(self.min_loss))
             print("Hyper-parameters were:")
             print(self.hps[self.min_loss_idx-1])

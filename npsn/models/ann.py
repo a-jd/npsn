@@ -4,9 +4,11 @@ NPSN Aritifical Neural Network Class
 
 import os
 import numpy as np
+
+# Base model
 from .base import BaseModel
 
-# Import for NN
+# Import for ANN
 import keras
 
 # hyperopt imports
@@ -15,6 +17,15 @@ from hyperopt.hp import choice
 
 
 class ANN(BaseModel):
+    def __init__(self, *args):
+        self.model_nm = 'ANN'
+        if len(args) == 6:
+            super().__init__(*args)
+        else:
+            print("Empty {} initialized".format(self.model_nm))
+            self.loaded_model = None
+        self.file_ext = '.' + self.model_nm
+
     def train_model(self, params):
         '''
         Input a dict, params, containing:
@@ -109,12 +120,44 @@ class ANN(BaseModel):
         rmCol = data_info['rmCol']
 
         # Save hdf file
-        modelpath = os.path.join(os.getcwd(), prj_nm+'.hdf5')
+        modelpath = os.path.join(os.getcwd(), prj_nm+self.file_ext)
         model.save(modelpath)
 
         # Append data to hdf file
         self.append_to_hdf(modelpath, dirnm=dirnm,
                            n_x=n_x, n_y=n_y, rmCol=rmCol)
+
+    def load_model(self, file_nm, inpdict):
+        '''
+        Load file_nm
+        Inputs:
+            file_nm: String, name of saved file
+            inpdict: Dict, empty containing keys to be read
+        Returns:
+            inpdict: Dict, filled for DataLoader
+        '''
+        if file_nm[-len(self.file_ext):] != self.file_ext:
+            raise(Exception('Wrong file_nm {}'.format(file_nm)))
+        fpath = os.path.join(os.getcwd(), file_nm)
+        try:
+            self.loaded_model = keras.models.load_model(fpath)
+        except Exception:
+            print("Error loading {} model.".format(self.model_nm))
+        else:
+            print("{} loaded.".format(file_nm))
+        # Settings used to train the loaded model
+        inpdict = self.read_from_hdf(fpath, inpdict)
+        return inpdict
+
+    def eval_model(self):
+        '''
+        Provides access to evaluate inputs.
+        Returns:
+            A function that can be used to eval loaded ANN
+        '''
+        if self.loaded_model is None:
+            raise(Exception('Model not loaded.'))
+        return self.loaded_model.predict
 
     @staticmethod
     def append_to_hdf(fname, **kwargs):
@@ -133,17 +176,17 @@ class ANN(BaseModel):
         h5file.close()
 
     @staticmethod
-    def read_from_hdf(fname, input_dict):
+    def read_from_hdf(fpath, input_dict):
         '''
         Read data stored from append_to_hdf
         Inputs:
-            fname: file name of hdf5 keras model
-            input_dict: empty dict with keys to fetch info
+            fpath: String, full path name of hdf5 keras model
+            input_dict: Dict, empty with keys to fetch info
         Returns:
-            input_dict: filled dict
+            input_dict: Dict, filled
         '''
         from tables import open_file
-        h5file = open_file(fname, mode='r')
+        h5file = open_file(fpath, mode='r')
         array = h5file.root.NN_Settings
         for key in input_dict:
             input_dict[key] = getattr(array.attrs, key)

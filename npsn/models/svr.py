@@ -2,6 +2,10 @@
 NPSN Support Vector Regression Class
 '''
 
+import os
+from joblib import dump, load
+
+# Base model
 from .base import BaseModel
 
 # Import for SVR
@@ -15,6 +19,15 @@ from hyperopt.hp import choice, quniform, uniform
 
 
 class SVR(BaseModel):
+    def __init__(self, *args):
+        self.model_nm = 'SVR'
+        if len(args) == 6:
+            super().__init__(*args)
+        else:
+            print("Empty {} initialized".format(self.model_nm))
+            self.loaded_model = None
+        self.file_ext = '.' + self.model_nm
+
     def train_model(self, params):
         '''
         Input a dict, params, containing:
@@ -92,7 +105,57 @@ class SVR(BaseModel):
         return super().gen_trials()
 
     def save_model(self):
-        pass
+        '''
+        Save SVR model and DataLoader settings
+        '''
+        # Get best SVR model
+        model = self.tr_hist.best_model
+        if model is None:
+            raise(Exception('Model not trained.'))
+        pickle_dict = {
+            'model': model,
+            'data_info': self.data_info
+        }
 
-    def load_model(self):
-        pass
+        # Save with joblib
+        prj_nm = self.data_info['prj_nm']
+        modelpath = os.path.join(os.getcwd(), prj_nm+self.file_ext)
+        dump(pickle_dict, modelpath)
+
+    def load_model(self, file_nm, inp_dict):
+        '''
+        Load file_nm
+        Inputs:
+            file_nm: String, name of saved file
+            inp_dict: Dict, empty containing keys to be read
+        Returns:
+            inp_dict: Dict, filled for DataLoader
+        '''
+        if file_nm[-len(self.file_ext):] != self.file_ext:
+            raise(Exception('Wrong file_nm {}'.format(file_nm)))
+        fpath = os.path.join(os.getcwd(), file_nm)
+        try:
+            loaded_dict = load(fpath)
+        except Exception:
+            print("Error loading {} model.".format(self.model_nm))
+        else:
+            self.loaded_model = loaded_dict['model']
+            self.data_info = loaded_dict['data_info']
+            print("{} loaded.".format(file_nm))
+        return self.data_info
+
+    def eval_model(self):
+        '''
+        Provides access to evaluate inputs.
+        Returns:
+            predict: Function, used to eval loaded model
+        '''
+        if self.loaded_model is None:
+            raise(Exception('Model not loaded.'))
+
+        # SVR requires reshaping output
+        def predict(x_in):
+            y_out = self.loaded_model.predict(x_in)
+            return self.un_flat_y(y_out)
+
+        return predict

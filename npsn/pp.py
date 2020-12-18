@@ -9,16 +9,10 @@ This module will have the following objectives:
 
 import os
 import time
-
-import keras
 import numpy as np
-import scipy.io as scio
 
 from .dg import PowerReader
-
-# TODO: Not Good Practice, will need a different method for each model.
-from .models.ann import ANN
-read_from_hdf = ANN.read_from_hdf
+from .mg import ModelGenerator
 
 
 def map_error(x, xhat, errTyp='mape'):
@@ -95,39 +89,37 @@ def map_error(x, xhat, errTyp='mape'):
     return noerr, elerr, coerr
 
 
-def eval_model(prj_nm, inpdict, model):
+def model_error(prj_nm, inp_dict, model_fn):
     '''
-    Evaluates keras model using map_error function and
+    Evaluates model using map_error and
     writes csv files into csv/ directory
     inputs:
-        prj_nm: base name of inp model
-        inpdict: keys to be loaded for data
-        model: keras model to be evaluated
+        prj_nm: String, base name of model
+        inp_dict: Dict, loaded for data
+        model_fn: Function, model fn to be evaluated
     '''
-    def _load_data(ind):
-        tdat = PowerReader(ind['dirnm'], int(ind['n_x']),
-                           ind['n_y'], ind['rmCol'])
-        tdat.scale_heights()
-        tdat.scale_powers()
-        return tdat
+    # Setup object to load data
+    tdat = PowerReader(inp_dict['dirnm'], int(inp_dict['n_x']),
+                       inp_dict['n_y'], inp_dict['rmCol'])
+    tdat.scale_heights()
+    tdat.scale_powers()
 
-    tdat = _load_data(inpdict)
-    # using default load_data tr_ratio=0.8
+    # Using default tr_ratio=0.8
     xtr, ytr, xte, yte = tdat.load_data()
     xtr = np.squeeze(xtr)
     xte = np.squeeze(xte)
 
     ytrds = tdat.descale_model_powers(ytr)
-    yptr = model.predict_on_batch(xtr)
+    yptr = model_fn(xtr)
     yptrds = tdat.descale_model_powers(yptr)
 
     yteds = tdat.descale_model_powers(yte)
-    ypte = model.predict_on_batch(xte)
+    ypte = model_fn(xte)
     ypteds = tdat.descale_model_powers(ypte)
 
     # Calculate time per batch
     start_time = time.time()
-    _ = model.predict_on_batch(xtr)
+    _ = model_fn(xtr)
     end_time = time.time()
     eval_time = (end_time-start_time)/xtr.shape[0]
     print('Time taken per evaluation: {} seconds'.format(eval_time))
@@ -151,31 +143,30 @@ def eval_model(prj_nm, inpdict, model):
         np.savetxt(fn+"_cte.csv", cte, delimiter=",", fmt='%.8e')
 
 
-def parse_trials(prj_nm, trial):
+def post_processor(prj_nm, model_nm):
     '''
-    Function to parse trials object that results from a
-    hyperopt execution. Trials object contains information
-    about each hyperparameter permutation and its result.
+    Postprocesses file_nm and creates output
+    in cwd/csvs with error statistics
     Inputs:
-        prj_nm: base name of inp model
-        trial: pass trial object type = hyperopt.Trial
-    Returns:
-        None (but prints out a .mat file)
+        prj_nm: String, name to save model and trials
+        model_nm: String, type of regression model used
     '''
-    # Path checking
-    matpath = os.path.join(os.getcwd(), 'mats')
-    if not os.path.isdir(matpath):
-        os.mkdir(matpath)
-    path = os.path.join(matpath, prj_nm+'_')
+    file_nm = prj_nm + '.' + model_nm
 
-    fn = path+'hyppars'
-    output_dict = {
-        'labels': np.array(list(trial.vals.keys())),
-        'values': np.array(list(trial.vals.values())).T,
-        'losses': np.array(trial.losses())
-    }
-    scio.savemat(fn+"_values.mat", output_dict)
-    return None
+    # Inputs needed to setup new BaseModel class
+    inp_dict = {'dirnm': None, 'n_x': None, 'n_y': None,
+                'rmCol': None}
+
+    # Instantiate model and access to prediction
+    model = ModelGenerator(model_nm)
+    inp_dict = model.load_model(file_nm, inp_dict)
+    model_regressor = model.eval_model()
+
+    # Calculate the error metrics
+    model_error(prj_nm, inp_dict, model_regressor)
+
+
+# Utility functions ###########
 
 
 def show_map(prj_nm):
@@ -191,23 +182,3 @@ def show_map(prj_nm):
     plt.colorbar()
     plt.show()
     return None
-
-
-def post_processor(prj_nm):
-    '''
-    Postprocesses model 'prj_nm.hdf' and creates output
-    in cwd/csvs with error statistics
-    Inputs:
-        prj_nm: saved name of trained model
-    '''
-    fn = prj_nm+'.hdf5'
-    fpath = os.path.join(os.getcwd(), fn)
-    model = keras.models.load_model(fpath)
-
-    # read model settings from hdf5 file
-    inpdict = {'dirnm': None, 'n_x': None, 'n_y': None,
-               'rmCol': None}
-    inpdict = read_from_hdf(fpath, inpdict)
-
-    # calculate the error metrics
-    eval_model(prj_nm, inpdict, model)
