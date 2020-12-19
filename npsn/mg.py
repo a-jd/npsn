@@ -16,6 +16,7 @@ from .dg import DataLoader
 
 from .models.ann import ANN
 from .models.svr import SVR
+from .models.gbr import GBR
 
 
 def ModelGenerator(model_nm, **kwargs):
@@ -35,6 +36,7 @@ def ModelGenerator(model_nm, **kwargs):
 
     models = {
         'ANN': ANN,
+        'GBR': GBR,
         'SVR': SVR
     }
 
