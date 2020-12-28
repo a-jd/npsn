@@ -90,7 +90,11 @@ class BaseModel():
         '''
         nbatch = y_flat.shape[0]
         n_y = self.data_info['n_y']
-        n_y = (n_y[0], n_y[1] - len(self.data_info['rmCol']))
+        if self.data_info['rmCol'] is None:
+            nRmCol = 0
+        else:
+            nRmCol = self.data_info['rmCol']
+        n_y = (n_y[0], n_y[1]-nRmCol)
 
         # Reshape
         shape = (nbatch, n_y[0], n_y[1])
