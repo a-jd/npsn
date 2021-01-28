@@ -15,8 +15,9 @@ from .models.base import TrainingHistory
 from .dg import DataLoader
 
 from .models.ann import ANN
-from .models.svr import SVR
 from .models.gbr import GBR
+from .models.gpr import GPR
+from .models.svr import SVR
 
 
 def ModelGenerator(model_nm, **kwargs):
@@ -37,6 +38,7 @@ def ModelGenerator(model_nm, **kwargs):
     models = {
         'ANN': ANN,
         'GBR': GBR,
+        'GPR': GPR,
         'SVR': SVR
     }
 
@@ -45,7 +47,7 @@ def ModelGenerator(model_nm, **kwargs):
             data_info = kwargs['data_info']
             data = kwargs['data']
         except KeyError as kerr:
-            print('Incorrect KerError: {}'.format(kerr))
+            print('Incorrect KeyError: {}'.format(kerr))
         else:
             generated_model = models[model_nm](data_info, *data, tr_hist)
     else:
@@ -86,7 +88,7 @@ def train(prj_nm, model_nm, datadir,
           n_x, n_y, rmCol=None, npy_check=False,
           guessBool=True, max_evals=1):
     '''
-    Training driver of neuralnetwork with optimization
+    Training driver of surrogate model with optimization
     Inputs:
         prj_nm: String, name to save model and trials
         model_nm: String, type of regression model used

@@ -117,9 +117,9 @@ class GBR(BaseModel):
             print("Error loading {} model.".format(self.model_nm))
         else:
             self.loaded_model = loaded_dict['model']
-            self.data_info = loaded_dict['data_info']
+            data_info = loaded_dict['data_info']
             print("{} loaded.".format(file_nm))
-        return self.data_info
+        return data_info
 
     def eval_model(self):
         '''
