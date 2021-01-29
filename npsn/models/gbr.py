@@ -118,6 +118,7 @@ class GBR(BaseModel):
         else:
             self.loaded_model = loaded_dict['model']
             data_info = loaded_dict['data_info']
+            self.data_info = data_info
             print("{} loaded.".format(file_nm))
         return data_info
 

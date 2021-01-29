@@ -93,7 +93,7 @@ class BaseModel():
         if self.data_info['rmCol'] is None:
             nRmCol = 0
         else:
-            nRmCol = self.data_info['rmCol']
+            nRmCol = len(self.data_info['rmCol'])
         n_y = (n_y[0], n_y[1]-nRmCol)
 
         # Reshape

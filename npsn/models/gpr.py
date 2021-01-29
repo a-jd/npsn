@@ -18,7 +18,6 @@ import tensorflow as tf
 # hyperopt imports
 from hyperopt import STATUS_OK
 from hyperopt.hp import choice, quniform, uniform
-import pdb
 
 # misc imports
 from joblib import dump, load
@@ -146,7 +145,6 @@ class GPR(BaseModel):
         )
 
         # Hyperopt loss for each combination
-        pdb.set_trace()
         y_predict, y_predict_var = model.predict_y(self.x_test)
         hyp_loss = sklmse(y_te_fl, y_predict)
         self.tr_hist.update_history(params, hyp_loss, model)
@@ -178,14 +176,13 @@ class GPR(BaseModel):
         GPR requires using tf.saved_model.save()
         '''
         # Get best GPR model
-        pdb.set_trace()
         model = self.tr_hist.best_model
         if model is None:
             raise(Exception('Model not trained.'))
 
         # Save GPR model
         tfdt = tf.float64
-        tfts = tf.TensorSpec(shape=[None, 1], dtype=tfdt)
+        tfts = tf.TensorSpec(shape=[None, self.x_shape[0]], dtype=tfdt)
         model.predict_f_compiled = \
             tf.function(model.predict_f, input_signature=[tfts])
         prj_nm = self.data_info['prj_nm']
@@ -224,6 +221,7 @@ class GPR(BaseModel):
         except Exception:
             print("Error loading {} datainfo.".format(self.model_nm))
         else:
+            self.data_info = data_info
             print("{} loaded.".format(file_nm))
 
         return data_info
@@ -240,6 +238,6 @@ class GPR(BaseModel):
         # GPR requires reshaping output
         def predict(x_in):
             y_out, y_var_out = self.loaded_model.predict_f_compiled(x_in)
-            return self.un_flat_y(y_out)
+            return self.un_flat_y(y_out.numpy())
 
         return predict
