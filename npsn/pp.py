@@ -44,6 +44,13 @@ def map_error(x, xhat, errTyp='mape'):
             out = np.divide(numer, denom)
         return out
 
+    def mae(x, xhat, ax=None):
+        if ax is None:
+            out = np.abs(xhat-x)
+        else:
+            out = np.abs(xhat-x).mean(axis=ax)
+        return out
+
     def mape(x, xhat, ax=None):
         if ax is None:
             out = ((np.abs((xhat-x)/x))*100)
@@ -59,6 +66,7 @@ def map_error(x, xhat, errTyp='mape'):
         return out
 
     assert x.shape == xhat.shape, "Shape mismatch."
+    # Currently written to handle batch of 2D arrays only.
     assert len(x.shape) == 3, "Too many dims."
     errFn = locals()[errTyp]
 
@@ -68,6 +76,7 @@ def map_error(x, xhat, errTyp='mape'):
     noerr = np.zeros(x.shape[1])
     # core-wise average error
     coerr = np.zeros(x.shape[1:])
+
     # fill error
     if errTyp != 'mape_std':
         for i in range(x.shape[0]):  # loop over batches
@@ -148,7 +157,7 @@ def post_processor(prj_nm, model_nm):
     Postprocesses file_nm and creates output
     in cwd/csvs with error statistics
     Inputs:
-        prj_nm: String, name to save model and trials
+        prj_nm: String, name of saved model
         model_nm: String, type of regression model used
     '''
     file_nm = prj_nm + '.' + model_nm
@@ -182,3 +191,71 @@ def show_map(prj_nm):
     plt.colorbar()
     plt.show()
     return None
+
+
+def gpr_var_post_process(prj_nm, model_nm):
+    '''
+    Utility function to get variance results from GPR.
+    Inputs:
+        prj_nm: String, name of saved model
+        model_nm: String, type of regression model used
+    '''
+    if model_nm != 'GPR':
+        raise(Exception('Wrong model type {}.'.format(model_nm)))
+
+    file_nm = prj_nm + '.' + model_nm
+
+    # Inputs needed to setup new BaseModel class
+    inp_dict = {'dirnm': None, 'n_x': None, 'n_y': None,
+                'rmCol': None}
+
+    # Instantiate model and access to prediction
+    model = ModelGenerator(model_nm)
+    inp_dict = model.load_model(file_nm, inp_dict)
+    model_fn = model.eval_model(seekingVar=True)
+
+    # Setup object to load data
+    tdat = PowerReader(inp_dict['dirnm'], int(inp_dict['n_x']),
+                       inp_dict['n_y'], inp_dict['rmCol'])
+    tdat.scale_heights()
+    tdat.scale_powers()
+
+    ## x,y data
+    # Using default tr_ratio=0.8
+    xtr, ytr, xte, yte = tdat.load_data()
+    xtr = np.squeeze(xtr)
+    xte = np.squeeze(xte)
+    # Training/test default y (power/flux)
+    pow_tr = tdat.descale_model_powers(ytr)
+    pow_te = tdat.descale_model_powers(yte)
+
+    # Fetching GPR variance for test & training data
+    yptr = model_fn(xtr)
+    ypte = model_fn(xte)
+    # Converting variance to std dev
+    tr_std = np.sqrt(tdat.descale_model_powers(yptr))
+    te_std = np.sqrt(tdat.descale_model_powers(ypte))
+    # Normalize to power
+    tr_std_n = tr_std/pow_tr
+    te_std_n = te_std/pow_te
+
+    # Path checking
+    csvpath = os.path.join(os.getcwd(), 'csvs')
+    if not os.path.isdir(csvpath):
+        os.mkdir(csvpath)
+    # Added _var_ to separate from normal error post-processing
+    path = os.path.join(csvpath, prj_nm+'_var_')
+
+    # mae will provide a simple average of variances
+    errType = ['mae']
+    for errSel in errType:
+        fn = path+errSel
+        # "*0" added to only provide average of yptrds/ypteds
+        ntr, etr, ctr = map_error(tr_std_n, tr_std_n*0, errTyp=errSel)
+        nte, ete, cte = map_error(te_std_n, te_std_n*0, errTyp=errSel)
+        np.savetxt(fn+"_ntr.csv", ntr, delimiter=",", fmt='%.8e')
+        np.savetxt(fn+"_nte.csv", nte, delimiter=",", fmt='%.8e')
+        np.savetxt(fn+"_etr.csv", etr, delimiter=",", fmt='%.8e')
+        np.savetxt(fn+"_ete.csv", ete, delimiter=",", fmt='%.8e')
+        np.savetxt(fn+"_ctr.csv", ctr, delimiter=",", fmt='%.8e')
+        np.savetxt(fn+"_cte.csv", cte, delimiter=",", fmt='%.8e')

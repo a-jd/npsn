@@ -77,25 +77,25 @@ class SVR(BaseModel):
             {
                 'kernel': 'linear',
                 'nu': uniform('nu_lin', 1e-5, 1),
-                'C': uniform('C_lin', 0.5, 1.5),
+                'C': uniform('C_lin', 0.5, 10.0),
             },
             {
                 'kernel': 'poly',
                 'nu': uniform('nu_poly', 1e-5, 1),
-                'C': uniform('C_poly', 0.5, 1.5),
+                'C': uniform('C_poly', 0.5, 10.0),
                 'degree': quniform('degree_poly', 2, 5, 1),
                 'gamma': choice('gamma_poly', ['scale', 'auto'])
             },
             {
                 'kernel': 'rbf',
                 'nu': uniform('nu_rbf', 1e-5, 1),
-                'C': uniform('C_rbf', 0.5, 1.5),
+                'C': uniform('C_rbf', 0.5, 10.0),
                 'gamma': choice('gamma_rbf', ['scale', 'auto'])
             },
             {
                 'kernel': 'sigmoid',
                 'nu': uniform('nu_sigmoid', 1e-5, 1),
-                'C': uniform('C_sigmoid', 0.5, 1.5),
+                'C': uniform('C_sigmoid', 0.5, 10.0),
                 'gamma': choice('gamma_sigmoid', ['scale', 'auto'])
             },
         ])

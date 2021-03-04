@@ -51,9 +51,7 @@ class GPR(BaseModel):
                      Dim_Linear+Matern52, Dim_Linear*Matern52,
                      Dim_Exponential+Matern52, Dim_Exponential*Matern52,
                      }
-            optimizer: String, Used for training
-                    {Scipy_LBFGSB, Scipy_CG, Scipy_trustNCG,
-                    XiNat,XiSqrtMeanVar}
+            nipts: Integer, number of inducing points (kernel definition)
         Returns:
             Dict containing info on combination
         '''
@@ -141,7 +139,7 @@ class GPR(BaseModel):
             model.training_loss_closure((self.x_train, y_tr_fl)),
             variables=model.trainable_variables,
             method='L-BFGS-B',
-            options={"disp": True, "maxiter": ci_niter(10)},
+            options={"disp": True, "maxiter": ci_niter(2000)},
         )
 
         # Hyperopt loss for each combination
@@ -163,7 +161,7 @@ class GPR(BaseModel):
         ]
         hpss = {
             'kernel': choice('kernel', kernel_ls),
-            'nipts': choice('nipts', [5, 9, 15, 21, 31, 45])
+            'nipts': choice('nipts', [21, 45, 75, 101])
         }
         return hpss
 
@@ -226,9 +224,11 @@ class GPR(BaseModel):
 
         return data_info
 
-    def eval_model(self):
+    def eval_model(self, seekingVar=False):
         '''
         Provides access to evaluate inputs.
+        Inputs:
+            seekingVar: Bool, if variance instead of mean sought
         Returns:
             predict: Function, used to eval loaded model
         '''
@@ -238,6 +238,10 @@ class GPR(BaseModel):
         # GPR requires reshaping output
         def predict(x_in):
             y_out, y_var_out = self.loaded_model.predict_f_compiled(x_in)
-            return self.un_flat_y(y_out.numpy())
+            if not seekingVar:
+                y_final = y_out
+            else:
+                y_final = y_var_out
+            return self.un_flat_y(y_final.numpy())
 
         return predict

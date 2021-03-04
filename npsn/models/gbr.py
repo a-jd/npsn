@@ -71,9 +71,9 @@ class GBR(BaseModel):
         hpss = {
             'loss': choice('loss', ['ls', 'lad', 'huber']),
             'learning_rate': uniform('lr', 0.05, 0.4),
-            'n_estimators': quniform('nest', 50, 200, 1),
+            'n_estimators': quniform('nest', 100, 400, 1),
             'criterion': choice('cri', ['friedman_mse', 'mse', 'mae']),
-            'max_depth': quniform('md', 2, 6, 1),
+            'max_depth': quniform('md', 2, 10, 1),
             'max_features': choice('mf', ['auto', 'sqrt', 'log2'])
         }
         return hpss
