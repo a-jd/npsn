@@ -9,13 +9,10 @@ This module will have the following objectives:
 
 import os
 import time
-
-import keras
 import numpy as np
-import scipy.io as scio
 
 from .dg import PowerReader
-from .dg import read_from_hdf
+from .mg import ModelGenerator
 
 
 def map_error(x, xhat, errTyp='mape'):
@@ -47,6 +44,13 @@ def map_error(x, xhat, errTyp='mape'):
             out = np.divide(numer, denom)
         return out
 
+    def mae(x, xhat, ax=None):
+        if ax is None:
+            out = np.abs(xhat-x)
+        else:
+            out = np.abs(xhat-x).mean(axis=ax)
+        return out
+
     def mape(x, xhat, ax=None):
         if ax is None:
             out = ((np.abs((xhat-x)/x))*100)
@@ -62,6 +66,7 @@ def map_error(x, xhat, errTyp='mape'):
         return out
 
     assert x.shape == xhat.shape, "Shape mismatch."
+    # Currently written to handle batch of 2D arrays only.
     assert len(x.shape) == 3, "Too many dims."
     errFn = locals()[errTyp]
 
@@ -71,6 +76,7 @@ def map_error(x, xhat, errTyp='mape'):
     noerr = np.zeros(x.shape[1])
     # core-wise average error
     coerr = np.zeros(x.shape[1:])
+
     # fill error
     if errTyp != 'mape_std':
         for i in range(x.shape[0]):  # loop over batches
@@ -92,39 +98,37 @@ def map_error(x, xhat, errTyp='mape'):
     return noerr, elerr, coerr
 
 
-def eval_model(PRJNM, inpdict, model):
+def model_error(prj_nm, inp_dict, model_fn):
     '''
-    Evaluates keras model using map_error function and
+    Evaluates model using map_error and
     writes csv files into csv/ directory
     inputs:
-        PRJNM: base name of inp model
-        inpdict: keys to be loaded for data
-        model: keras model to be evaluated
+        prj_nm: String, base name of model
+        inp_dict: Dict, loaded for data
+        model_fn: Function, model fn to be evaluated
     '''
-    def _load_data(ind):
-        tdat = PowerReader(ind['dirnm'], int(ind['n_x']),
-                           ind['n_y'], ind['rmCol'])
-        tdat.scale_heights()
-        tdat.scale_powers()
-        return tdat
+    # Setup object to load data
+    tdat = PowerReader(inp_dict['dirnm'], int(inp_dict['n_x']),
+                       inp_dict['n_y'], inp_dict['rmCol'])
+    tdat.scale_heights()
+    tdat.scale_powers()
 
-    tdat = _load_data(inpdict)
-    # using default load_data tr_ratio=0.8
+    # Using default tr_ratio=0.8
     xtr, ytr, xte, yte = tdat.load_data()
     xtr = np.squeeze(xtr)
     xte = np.squeeze(xte)
 
     ytrds = tdat.descale_model_powers(ytr)
-    yptr = model.predict_on_batch(xtr)
+    yptr = model_fn(xtr)
     yptrds = tdat.descale_model_powers(yptr)
 
     yteds = tdat.descale_model_powers(yte)
-    ypte = model.predict_on_batch(xte)
+    ypte = model_fn(xte)
     ypteds = tdat.descale_model_powers(ypte)
 
     # Calculate time per batch
     start_time = time.time()
-    _ = model.predict_on_batch(xtr)
+    _ = model_fn(xtr)
     end_time = time.time()
     eval_time = (end_time-start_time)/xtr.shape[0]
     print('Time taken per evaluation: {} seconds'.format(eval_time))
@@ -133,7 +137,7 @@ def eval_model(PRJNM, inpdict, model):
     csvpath = os.path.join(os.getcwd(), 'csvs')
     if not os.path.isdir(csvpath):
         os.mkdir(csvpath)
-    path = os.path.join(csvpath, PRJNM+'_')
+    path = os.path.join(csvpath, prj_nm+'_')
 
     errType = ['mape', 'mape_std']
     for errSel in errType:
@@ -148,41 +152,40 @@ def eval_model(PRJNM, inpdict, model):
         np.savetxt(fn+"_cte.csv", cte, delimiter=",", fmt='%.8e')
 
 
-def parse_trials(PRJNM, trial):
+def post_processor(prj_nm, model_nm):
     '''
-    Function to parse trials object that results from a
-    hyperas execution. Trials object contains information
-    about each hyperparameter permutation and its result.
+    Postprocesses file_nm and creates output
+    in cwd/csvs with error statistics
     Inputs:
-        PRJNM: base name of inp model
-        trial: pass trial object type = hyperopt.Trial
-    Returns:
-        None (but prints out a .mat file)
+        prj_nm: String, name of saved model
+        model_nm: String, type of regression model used
     '''
-    # Path checking
-    matpath = os.path.join(os.getcwd(), 'mats')
-    if not os.path.isdir(matpath):
-        os.mkdir(matpath)
-    path = os.path.join(matpath, PRJNM+'_')
+    file_nm = prj_nm + '.' + model_nm
 
-    fn = path+'hyppars'
-    output_dict = {
-        'labels': np.array(list(trial.vals.keys())),
-        'values': np.array(list(trial.vals.values())).T,
-        'losses': np.array(trial.losses())
-    }
-    scio.savemat(fn+"_values.mat", output_dict)
-    return None
+    # Inputs needed to setup new BaseModel class
+    inp_dict = {'dirnm': None, 'n_x': None, 'n_y': None,
+                'rmCol': None}
+
+    # Instantiate model and access to prediction
+    model = ModelGenerator(model_nm)
+    inp_dict = model.load_model(file_nm, inp_dict)
+    model_regressor = model.eval_model()
+
+    # Calculate the error metrics
+    model_error(prj_nm, inp_dict, model_regressor)
 
 
-def show_map(PRJNM):
+# Utility functions ###########
+
+
+def show_map(prj_nm):
     '''
     Simple function to visualize error map
     Inputs:
-        PRJNM: base name of inp model
+        prj_nm: base name of inp model
     '''
     import matplotlib.pyplot as plt
-    fn = 'csvs/'+PRJNM+'_'+'mape_cte.csv'
+    fn = 'csvs/'+prj_nm+'_'+'mape_cte.csv'
     err = np.genfromtxt(fn, delimiter=',')
     plt.imshow(err)
     plt.colorbar()
@@ -190,21 +193,69 @@ def show_map(PRJNM):
     return None
 
 
-def post_processor(PRJNM):
+def gpr_var_post_process(prj_nm, model_nm):
     '''
-    Postprocesses model 'PRJNM.hdf' and creates output
-    in cwd/csvs with error statistics
+    Utility function to get variance results from GPR.
     Inputs:
-        PRJNM: saved name of trained model
+        prj_nm: String, name of saved model
+        model_nm: String, type of regression model used
     '''
-    fn = PRJNM+'.hdf5'
-    fpath = os.path.join(os.getcwd(), fn)
-    model = keras.models.load_model(fpath)
+    if model_nm != 'GPR':
+        raise(Exception('Wrong model type {}.'.format(model_nm)))
 
-    # read model settings from hdf5 file
-    inpdict = {'dirnm': None, 'n_x': None, 'n_y': None,
-               'rmCol': None}
-    inpdict = read_from_hdf(fpath, inpdict)
+    file_nm = prj_nm + '.' + model_nm
 
-    # calculate the error metrics
-    eval_model(PRJNM, inpdict, model)
+    # Inputs needed to setup new BaseModel class
+    inp_dict = {'dirnm': None, 'n_x': None, 'n_y': None,
+                'rmCol': None}
+
+    # Instantiate model and access to prediction
+    model = ModelGenerator(model_nm)
+    inp_dict = model.load_model(file_nm, inp_dict)
+    model_fn = model.eval_model(seekingVar=True)
+
+    # Setup object to load data
+    tdat = PowerReader(inp_dict['dirnm'], int(inp_dict['n_x']),
+                       inp_dict['n_y'], inp_dict['rmCol'])
+    tdat.scale_heights()
+    tdat.scale_powers()
+
+    ## x,y data
+    # Using default tr_ratio=0.8
+    xtr, ytr, xte, yte = tdat.load_data()
+    xtr = np.squeeze(xtr)
+    xte = np.squeeze(xte)
+    # Training/test default y (power/flux)
+    pow_tr = tdat.descale_model_powers(ytr)
+    pow_te = tdat.descale_model_powers(yte)
+
+    # Fetching GPR variance for test & training data
+    yptr = model_fn(xtr)
+    ypte = model_fn(xte)
+    # Converting variance to std dev
+    tr_std = np.sqrt(tdat.descale_model_powers(yptr))
+    te_std = np.sqrt(tdat.descale_model_powers(ypte))
+    # Normalize to power
+    tr_std_n = tr_std/pow_tr
+    te_std_n = te_std/pow_te
+
+    # Path checking
+    csvpath = os.path.join(os.getcwd(), 'csvs')
+    if not os.path.isdir(csvpath):
+        os.mkdir(csvpath)
+    # Added _var_ to separate from normal error post-processing
+    path = os.path.join(csvpath, prj_nm+'_var_')
+
+    # mae will provide a simple average of variances
+    errType = ['mae']
+    for errSel in errType:
+        fn = path+errSel
+        # "*0" added to only provide average of yptrds/ypteds
+        ntr, etr, ctr = map_error(tr_std_n, tr_std_n*0, errTyp=errSel)
+        nte, ete, cte = map_error(te_std_n, te_std_n*0, errTyp=errSel)
+        np.savetxt(fn+"_ntr.csv", ntr, delimiter=",", fmt='%.8e')
+        np.savetxt(fn+"_nte.csv", nte, delimiter=",", fmt='%.8e')
+        np.savetxt(fn+"_etr.csv", etr, delimiter=",", fmt='%.8e')
+        np.savetxt(fn+"_ete.csv", ete, delimiter=",", fmt='%.8e')
+        np.savetxt(fn+"_ctr.csv", ctr, delimiter=",", fmt='%.8e')
+        np.savetxt(fn+"_cte.csv", cte, delimiter=",", fmt='%.8e')

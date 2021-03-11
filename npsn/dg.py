@@ -63,7 +63,8 @@ class PowerReader:
     """
     Class to read power distributions.
     """
-    def __init__(self, dirName, n_x, n_y, rmCol=None):
+    def __init__(self, dirName, n_x, n_y, rmCol=None,
+                 npy_check=False):
         '''
         dirName: directory name containing csvs
         n_x: 1D array of input control blade heights
@@ -72,6 +73,7 @@ class PowerReader:
             nnode: number of nodes per element
             if using rmCol, nnode should add len(rmCol)
         rmCol: remove any csv column (needed for dummy locs)
+        npy_check: if .npy file with height list exists
         '''
         assert type(n_x) is int or type(n_x) is np.int32, \
             "n_x not an int"
@@ -83,7 +85,7 @@ class PowerReader:
         assert type(n_y[1]) is int, "n_y[1] not an int"
         self.n_x = n_x
         self.n_y = n_y
-        self.hls, self.pwrl = self._readFiles(dirName, n_x, n_y)
+        self.pwrl = self._readFiles(dirName, n_x, n_y, npy_check)
         if rmCol is not None:
             self._remove_null_pwr(rmCol)
         # Keep track of scaling & initiate
@@ -92,7 +94,7 @@ class PowerReader:
         self._initiate_scalers(rmCol)
 
     @staticmethod
-    def _readFiles(dirName, n_x, n_y):
+    def _readFiles(dirName, n_x, n_y, npy_check):
         '''
         inputs:
             same defs as __init__
@@ -111,12 +113,14 @@ class PowerReader:
         # For strange error when using listdir with np.str_
         if type(dirName) == np.str_:
             dirName = str(dirName)
+
         # Look for saved .npy file (contains heights)
-        hfn = [join(dirName, f)
-               for f in listdir(dirName)
-               if isfile(join(dirName, f)) and f.endswith('.npy')]
-        assert len(hfn) == 1, "Dataset list error."
-        hls = np.load(hfn[0])
+        if npy_check:
+            hfn = [join(dirName, f)
+                   for f in listdir(dirName)
+                   if isfile(join(dirName, f)) and f.endswith('.npy')]
+            assert len(hfn) == 1, "Dataset list error."
+            hls = np.load(hfn[0])
 
         # Get all .csv files in directory
         fns = [f
@@ -129,12 +133,13 @@ class PowerReader:
             sbh, pwr = __csvread(join(dirName, fn))
             idn = int(re.findall('\d+', fn)[-1])
             #  Check if sbh read is equal to .npy file
-            assert np.allclose(hls[idn], sbh), "sbh discrepancy"
+            if npy_check:
+                assert np.allclose(hls[idn], sbh), "sbh discrepancy"
             # SBH reshaped to be [sample, nfeatures] compliant
             pwrl.append(PowerRecord(idn, sbh.reshape(-1, 1), pwr))
 
         # Final output
-        return hls, pwrl
+        return pwrl
 
     def _remove_null_pwr(self, rmCol):
         '''
@@ -271,26 +276,32 @@ class DataLoader():
     """
     Class to handle data from PowerReader
     """
-    def __init__(self, dirnm, n_x, n_y, rmCol=None):
+    def __init__(self, prj_nm, dirnm, n_x, n_y,
+                 rmCol=None, npy_check=False):
         '''
+        prj_nm: project name for saving trained models
         dirnm: directory name containing csvs
         n_x: 1D array of input control blade heights
-        n_y: 2D array of size (nelem, nnode) where
-            nelem: number of fuel elements
+        n_y: 2D array of size (nnode, nelem) where
             nnode: number of nodes per element
-            if using rmCol, nnode should add len(rmCol)
+            nelem: number of fuel elements
+            if using rmCol, nelem should add len(rmCol)
         rmCol: remove any csv column (needed for dummy locs)
+        npy_check: if .npy file with height list exists
         '''
+        self.prj_nm = prj_nm
         self.dirnm = dirnm
         self.n_x = n_x
         self.n_y = n_y
         self.rmCol = rmCol
+        self.npy_check = npy_check
 
-    def get_data_settings(self):
+    def get_data_info(self):
         '''
         Return data info as a dict for saving
         '''
         data_info = {
+            'prj_nm': self.prj_nm,
             'dirnm': self.dirnm,
             'n_x': self.n_x,
             'n_y': self.n_y,
@@ -306,7 +317,8 @@ class DataLoader():
         Returns:
             x_train, y_train, x_test, y_test
         '''
-        tdat = PowerReader(self.dirnm, self.n_x, self.n_y, self.rmCol)
+        tdat = PowerReader(self.dirnm, self.n_x, self.n_y,
+                           rmCol=self.rmCol, npy_check=self.npy_check)
         tdat.scale_heights()
         tdat.scale_powers()
         x_train, y_train, x_test, y_test = tdat.load_data()
@@ -338,36 +350,3 @@ class DataLoader():
         return x_out, y_out
 
 
-def append_to_hdf(fname, **kwargs):
-    '''
-    A function to append dataset settings to hdf5 file.
-    Useful to save NN model + setting sin one file.
-    Inputs:
-        fname: file name of hdf5 keras model
-        kwargs: dict containing vars to store
-    '''
-    from tables import open_file
-    h5file = open_file(fname, mode='a')
-    array = h5file.create_array('/', 'NN_Settings', [])
-    for key, value in kwargs.items():
-        setattr(array.attrs, key, value)
-    h5file.close()
-
-
-def read_from_hdf(fname, input_dict):
-    '''
-    Read data stored from append_to_hdf
-    Inputs:
-        fname: file name of hdf5 keras model
-        input_dict: empty dict with keys to fetch info
-    Returns:
-        input_dict: filled dict
-    '''
-    from tables import open_file
-    h5file = open_file(fname, mode='r')
-    array = h5file.root.NN_Settings
-    for key in input_dict:
-        input_dict[key] = getattr(array.attrs, key)
-        print('Read from hdf5: {}'.format(key))
-    h5file.close()
-    return input_dict
