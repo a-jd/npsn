@@ -20,7 +20,7 @@ setuptools.setup(
                 ],
     python_requires='>=3.6',
     install_requires=[
-        'tensorflow==2.2.1',
+        'tensorflow==2.4.0',
         'hyperopt==0.2.4',
         'scikit-learn==0.23.1',
         'pydoe==0.3.8',
