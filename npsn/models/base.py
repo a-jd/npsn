@@ -7,7 +7,7 @@ class BaseModel():
     """
     Super class to instantiate model creation and training
     """
-    def __init__(self, data_info, x_train, y_train, x_test, y_test, tr_hist):
+    def __init__(self, data_info, tr_hist, x_train, y_train, x_test, y_test):
         '''
         Super class will hold all the training/test data
         No additional pre/post-processing will occur
@@ -15,11 +15,12 @@ class BaseModel():
         Inputs:
             data_info: Dict, contains training data settings
                        Ref .dg.DataLoader.get_data_settings
-            x/y train/test data
             tr_hist: TrainingHistory object to store optimization
                      data
+            x/y train/test data
         '''
         self.data_info = data_info
+        self.tr_hist = tr_hist
         self.x_train = x_train
         self.y_train = y_train
         self.x_test = x_test
@@ -28,7 +29,6 @@ class BaseModel():
         self.ntest = x_test.shape[0]
         self.x_shape = x_train.shape[1:]
         self.y_shape = y_train.shape[1:]
-        self.tr_hist = tr_hist
         self.hps_guess = None
         self.loaded_model = None
 

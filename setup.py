@@ -5,7 +5,7 @@ with open("readme.md", "r") as fh:
 
 setuptools.setup(
     name="npsn",
-    version="0.1",
+    version="0.2",
     author="Akshay J. Dave",
     author_email="akshayjd@mit.edu",
     description="Nuclear Power Surrogate Network",
@@ -20,8 +20,8 @@ setuptools.setup(
                 ],
     python_requires='>=3.6',
     install_requires=[
-        'tensorflow==2.2.1',
-        'hyperopt==0.2.4',
+        'tensorflow==2.2.3',
+        'hyperopt==0.2.5',
         'scikit-learn==0.23.1',
         'pydoe==0.3.8',
         'tables==3.6.1'

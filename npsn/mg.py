@@ -49,7 +49,7 @@ def ModelGenerator(model_nm, **kwargs):
         except KeyError as kerr:
             print('Incorrect KeyError: {}'.format(kerr))
         else:
-            generated_model = models[model_nm](data_info, *data, tr_hist)
+            generated_model = models[model_nm](data_info, tr_hist, *data)
     else:
         generated_model = models[model_nm]()
 
