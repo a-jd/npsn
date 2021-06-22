@@ -92,8 +92,8 @@ def map_error(x, xhat, errTyp='mape'):
             elerr += errFn(x[i], xhat[i], ax=0)
             noerr += errFn(x[i], xhat[i], ax=1)
             coerr_ls.append(errFn(x[i], xhat[i], ax=None))
-        noerr = np.sqrt(noerr)
-        elerr = np.sqrt(elerr)
+        noerr = np.sqrt(noerr/x.shape[0])
+        elerr = np.sqrt(elerr/x.shape[0])
         coerr = np.array(coerr_ls).std(axis=0)
     return noerr, elerr, coerr
 
@@ -225,16 +225,10 @@ def gpr_var_post_process(prj_nm, model_nm):
     xtr, ytr, xte, yte = tdat.load_data()
     xtr = np.squeeze(xtr)
     xte = np.squeeze(xte)
-    # Training/test default y (power/flux)
-    pow_tr = tdat.descale_model_powers(ytr)
-    pow_te = tdat.descale_model_powers(yte)
 
     # Fetching GPR variance for test & training data
     yptr = model_fn(xtr)
     ypte = model_fn(xte)
-    # Converting variance to std dev
-    tr_std = np.sqrt(tdat.descale_model_powers(yptr))
-    te_std = np.sqrt(tdat.descale_model_powers(ypte))
     # Normalize to power
     tr_std_n = tr_std/pow_tr
     te_std_n = te_std/pow_te

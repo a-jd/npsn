@@ -86,7 +86,7 @@ def parse_trials(prj_nm, trial):
 
 def train(prj_nm, model_nm, datadir,
           n_x, n_y, rmCol=None, npy_check=False,
-          guessBool=True, max_evals=1):
+          guessBool=True, max_evals=1, c_r=None):
     '''
     Training driver of surrogate model with optimization
     Inputs:
@@ -101,6 +101,7 @@ def train(prj_nm, model_nm, datadir,
         npy_check: Bool, if .npy file with height list in dataset exists
         guessBool: Bool, if including initial guess for hyperparameters
         max_evals: Int, if optimizing, >1, else == 1
+        c_r: Float, (0.,1], data reduction, see mg.DataLoader.load_data
     Returns:
         None (but saves the best trained model)
     '''
@@ -113,7 +114,7 @@ def train(prj_nm, model_nm, datadir,
     model = ModelGenerator(
         model_nm,
         data_info=data_loader.get_data_info(),
-        data=data_loader.load_data())
+        data=data_loader.load_data(c_r=c_r))
 
     # Create trial object
     trials = model.gen_trials(doGuess=guessBool)
@@ -132,4 +133,5 @@ def train(prj_nm, model_nm, datadir,
     model.tr_hist.best_model_info()
 
     # save the .mat file of all trials, if optimizing
-    parse_trials(prj_nm, trials)
+    if max_evals > 1:
+        parse_trials(prj_nm, trials)

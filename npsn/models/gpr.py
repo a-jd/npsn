@@ -113,7 +113,7 @@ class GPR(BaseModel):
             ker = kc_si(kl)
 
         # Define inducing points
-        # Inducing points = poitns at which kernel is trained/defined
+        # Inducing points = points at which kernel is trained/defined
         # Helps reduce computational requirement
         # Must be weighed against reduction in variance vs. pts
         # Hard coded upper and lower bounds for scaled control
